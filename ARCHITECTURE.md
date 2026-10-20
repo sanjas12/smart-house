@@ -111,7 +111,7 @@
 
 ## 7. Структура репозитория (предлагаемая)
 
-smar_house/
+smart_house/
 ├── ARCHITECTURE.md # этот файл
 ├── README.md
 ├── desktop/ # Python-сборщик данных
