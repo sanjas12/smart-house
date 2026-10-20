@@ -5,6 +5,8 @@ from datetime import datetime
 
 import requests
 
+os.environ['NO_PROXY'] = '127.0.0.1,localhost'
+
 SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:3000")
 DEVICE_ID = os.environ.get("DEVICE_ID", "demo-sensor-01")
 INTERVAL_SEC = float(os.environ.get("INTERVAL_SEC", "2"))
