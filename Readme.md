@@ -45,6 +45,14 @@ cd server
 bash scripts_server/recreate_env.sh
 ```
 
+#### 2.2 Создание виртуального окружения для desktop-приложения (VSCode)
+
+```bash
+cd desktop
+bash scripts_server/recreate_env.sh
+```
+
+
 #### 2.2 Установка зависимостей (если скрипт из пункта 2.1 не сработал)
 
 Рекомендуется — через [uv](https://github.com/astral-sh/uv):
