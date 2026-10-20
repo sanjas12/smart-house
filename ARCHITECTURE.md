@@ -118,12 +118,16 @@ smar_house/
 │ ├── config.yaml
 │ ├── main.py
 │ └── requirements.txt
-├── server/ # Python-сервер (FastAPI)
-│ ├── app/
+    server
+    ┣ app
 │ │ ├── main.py
 │ │ ├── models.py
 │ │ ├── schemas.py
 │ │ └── database.py
+    ┣ scripts_server
+    ┃ ┗ recreate_env.sh
+    ┣ requirements.txt
+    ┗ run_server_pip.sh
 │ └── requirements.txt
 └── mobile/ # HarmonyOS-приложение (ArkTS)
 └── (проект DevEco Studio)
