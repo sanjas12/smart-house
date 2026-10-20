@@ -111,6 +111,23 @@
 
 ## 7. Структура репозитория (предлагаемая)
 
+smar_house/
+├── ARCHITECTURE.md # этот файл
+├── README.md
+├── desktop/ # Python-сборщик данных
+│ ├── config.yaml
+│ ├── main.py
+│ └── requirements.txt
+├── server/ # Python-сервер (FastAPI)
+│ ├── app/
+│ │ ├── main.py
+│ │ ├── models.py
+│ │ ├── schemas.py
+│ │ └── database.py
+│ └── requirements.txt
+└── mobile/ # HarmonyOS-приложение (ArkTS)
+└── (проект DevEco Studio)
+
 ---
 
 ## 8. Журнал изменений документа
