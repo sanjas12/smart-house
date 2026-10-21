@@ -13,4 +13,4 @@ else
     exit 1
 fi
 
-exec "$VENV_PYTHON" main.py
+exec "$VENV_PYTHON" main.py "$@"

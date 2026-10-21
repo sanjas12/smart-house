@@ -8,7 +8,7 @@
 | Компонент | Реализация |
 |---|---|
 | `server/` | FastAPI + SQLite: телеметрия, последнее значение, очередь команд и подтверждение |
-| `desktop/` | Python + requests: случайные показания, получение и подтверждение команд |
+| `desktop/` | PyQt5 GUI + requests: случайные показания, получение и подтверждение команд |
 | `mobile/` | Пустой каталог; планируется HarmonyOS-клиент на ArkTS |
 
 Реальный опрос устройств и выполнение команд пока не реализованы.
@@ -100,6 +100,21 @@ bash server/run_server_pip.sh
 bash desktop/run_desktop_pip.sh
 ```
 
+Откроется окно сборщика. Укажите адрес сервера, идентификатор устройства и
+интервал, затем нажмите **Запустить**. В окне отображаются последнее успешно
+отправленное показание, счётчики и журнал. **Остановить** прекращает сбор;
+при активном запросе остановка и закрытие окна ожидают его завершения.
+Настройки можно менять после остановки. Команды выполняются в демонстрационном
+режиме: записываются в журнал и подтверждаются без управления оборудованием.
+
+GUI использует PyQt5; он устанавливается из `desktop/requirements.txt`.
+Версии PyQt5 и Qt закреплены; запуск на Windows 7 требует отдельной проверки.
+Для работы без графического окна:
+
+```bash
+bash desktop/run_desktop_pip.sh --cli
+```
+
 Скрипты используют собственную `.venv`, поддерживают Windows и Linux и могут
 вызываться из любого каталога. Остановить процесс можно через `Ctrl+C`.
 
@@ -152,10 +167,10 @@ curl http://127.0.0.1:3000/api/devices/demo-sensor-01/commands
 Из корня репозитория, без запущенного сервера:
 
 ```bash
-server/.venv/bin/python -m pytest server/tests -q
+server/.venv/bin/python -m pytest server/tests desktop/tests -q
 ```
 
-В Windows: `server/.venv/Scripts/python.exe -m pytest server/tests -q`.
+В Windows: `server/.venv/Scripts/python.exe -m pytest server/tests desktop/tests -q`.
 Тесты используют отдельные временные базы данных.
 
 Проверено 2026-10-21: установка закреплённых зависимостей и 7 тестов API
@@ -173,7 +188,9 @@ server/
   run_server_pip.sh
   scripts_server/recreate_env.sh
 desktop/
-  main.py                       # сборщик с демонстрационным датчиком
+  main.py                       # запуск GUI или --cli
+  gui.py                        # окно PyQt5
+  collector.py                  # сбор данных и обработка демо-команд
   requirements.txt
   run_desktop_pip.sh
   scripts_server/recreate_env.sh

@@ -1,61 +1,41 @@
+"""Desktop entry point: GUI by default, console with --cli."""
+import argparse
 import os
-import random
-import time
 from datetime import datetime
+from threading import Event
 
-import requests
-
-# обход системного прокси Forefront TMG на Windows 7
-os.environ["NO_PROXY"] = "127.0.0.1,localhost"
-
-SERVER_URL = os.environ.get("SERVER_URL", "http://127.0.0.1:3000")
-DEVICE_ID = os.environ.get("DEVICE_ID", "demo-sensor-01")
-INTERVAL_SEC = float(os.environ.get("INTERVAL_SEC", "2"))
-
-
-def read_sensor() -> float:
-    return round(random.uniform(20.0, 30.0), 2)
-
-
-def send_telemetry(value: float) -> None:
-    url = f"{SERVER_URL}/api/telemetry"
-    try:
-        resp = requests.post(
-            url, json={"device_id": DEVICE_ID, "value": value}, timeout=5
-        )
-        resp.raise_for_status()
-        print(f"[{datetime.now():%H:%M:%S}] sent {value} -> {resp.status_code}")
-    except requests.RequestException as exc:
-        print(f"[{datetime.now():%H:%M:%S}] telemetry ERROR: {exc}")
-
-
-def poll_commands() -> None:
-    url = f"{SERVER_URL}/api/devices/{DEVICE_ID}/commands"
-    try:
-        resp = requests.get(url, timeout=5)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        print(f"[{datetime.now():%H:%M:%S}] commands ERROR: {exc}")
-        return
-
-    for cmd in resp.json().get("commands", []):
-        print(f"[{datetime.now():%H:%M:%S}] executing: {cmd['action']} {cmd.get('params')}")
-        # Здесь в будущем — реальное управление устройством.
-        # Пока просто подтверждаем выполнение.
-        ack_url = f"{SERVER_URL}/api/commands/{cmd['id']}/ack"
-        try:
-            requests.post(ack_url, timeout=5).raise_for_status()
-            print(f"[{datetime.now():%H:%M:%S}] ack command {cmd['id']}")
-        except requests.RequestException as exc:
-            print(f"[{datetime.now():%H:%M:%S}] ack ERROR: {exc}")
+from collector import Settings, run_collector
 
 
 def main():
-    print(f"Collector started. Server={SERVER_URL}, device={DEVICE_ID}")
-    while True:
-        send_telemetry(read_sensor())
-        poll_commands()
-        time.sleep(INTERVAL_SEC)
+    parser = argparse.ArgumentParser(description="Automation Hub — сборщик данных")
+    parser.add_argument("--cli", action="store_true", help="запустить без графического окна")
+    args = parser.parse_args()
+    if not args.cli:
+        try:
+            from gui import launch
+        except ImportError as exc:
+            if not (exc.name or "").startswith("PyQt5"):
+                raise
+            parser.exit(1, "PyQt5 не установлен. Установите зависимости desktop/requirements.txt. "
+                        "Для консольного режима используйте --cli.\n")
+        launch()
+        return
+    try:
+        settings = Settings(
+            os.environ.get("SERVER_URL", "http://127.0.0.1:3000"),
+            os.environ.get("DEVICE_ID", "demo-sensor-01"),
+            float(os.environ.get("INTERVAL_SEC", "2")),
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
+    stop = Event()
+    print("Демонстрационный сборщик: {} → {}".format(settings.device_id, settings.server_url))
+    try:
+        run_collector(settings, stop, lambda kind, value: print(
+            "[{}] {}: {}".format(datetime.now().strftime("%H:%M:%S"), kind, value)))
+    except KeyboardInterrupt:
+        stop.set()
 
 
 if __name__ == "__main__":
