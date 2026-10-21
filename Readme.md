@@ -1,155 +1,183 @@
 # Automation Hub — учебный проект
 
-Распределённая система для сбора данных с устройств промышленной и домашней
-автоматизации, их хранения на сервере и управления со смартфона Huawei.
+Система сбора телеметрии и передачи команд для домашней и промышленной
+автоматизации. Цель — освоить цикл «устройство → сервер → мобильный клиент».
 
-Проект учебный: главная цель — освоить полный цикл разработки
-(сбор данных → сервер → мобильный клиент), а не промышленная надёжность.
+## Текущее состояние
 
-## Компоненты
-
-| Компонент | Стек | Роль |
-|---|---|---|
-| `server/` | Python 3.8 + FastAPI + SQLite | REST API, хранение телеметрии, очередь команд |
-| `desktop/` | Python 3.8 + requests | Опрос устройств (пока — заглушка), отправка данных на сервер |
-| `mobile/` | ArkTS + DevEco Studio | Отображение данных и управление (в разработке) |
-
-Подробное описание архитектуры, потоков данных и roadmap — в
-[`ARCHITECTURE.md`](ARCHITECTURE.md).
-
-## Выпуск версии
-
-## Требования
-
-| Параметр | Значение |
+| Компонент | Реализация |
 |---|---|
-| Python | 3.8.10 (последняя версия, поддерживающая Windows 7) |
-| ОС | Windows 7 и выше |
-| [uv](https://github.com/astral-sh/uv) | 0.11.7 (рекомендуется, но не обязателен) |
+| `server/` | FastAPI + SQLite: телеметрия, последнее значение, очередь команд и подтверждение |
+| `desktop/` | Python + requests: случайные показания, получение и подтверждение команд |
+| `mobile/` | Пустой каталог; планируется HarmonyOS-клиент на ArkTS |
 
+Реальный опрос устройств и выполнение команд пока не реализованы.
+Архитектура и следующие этапы описаны в [ARCHITECTURE.md](ARCHITECTURE.md).
 
-### 2. Настройка окружения
+## Python и зависимости
 
-#### 2.1 Создание виртуального окружения для server-приложения (VSCode)
+Целевая версия для Windows 7 — **Python 3.8.10**, последний выпуск Python 3.8
+с официальными установщиками Windows. Для разработки на Linux можно использовать
+Python 3.12; проверку на Windows 7 нужно проводить отдельно.
+Python 3.8 больше не получает обновлений безопасности.
+Источник: [Python 3.8.10](https://www.python.org/downloads/release/python-3810/).
 
-```bash
-cd server
-bash scripts_server/recreate_env.sh
-```
+Прямые зависимости закреплены в `server/requirements.txt` и
+`desktop/requirements.txt`; эти файлы редактируются вручную.
+Транзитивные зависимости выбирает установщик с учётом версии Python —
+это ещё не полный lock-файл. SQLAlchemy и Alembic пока не используются:
+сервер обращается к SQLite через стандартный модуль `sqlite3`.
 
-#### 2.2 Создание виртуального окружения для desktop-приложения (VSCode)
+Для Bash-скриптов нужен Bash: в Windows — Git Bash, в Linux — обычный Bash.
+`uv` необязателен; основной способ ниже использует `venv` и `pip`.
 
-```bash
-cd desktop
-bash scripts_server/recreate_env.sh
-```
+## Установка
 
-#### 2.2 Установка зависимостей (если скрипт из пункта 2.1 не сработал)
-
-Рекомендуется — через [uv](https://github.com/astral-sh/uv):
-
-```bash
-uv sync
-```
-
-Без uv:
-
-```bash
-pip install -r requirements.txt
-```
-
-> `requirements.txt` генерируется из `pyproject.toml` — не редактировать вручную.
-
-### 3. Запуск из исходников
-
-#### 3.1 запуск server 
-
-##### c uv
+Команды выполняются из корня репозитория. В Windows используйте `python`
+вместо `python3` и `Scripts/python.exe` вместо `bin/python`.
+Проверьте версию выбранного интерпретатора командой `python3 --version`.
+На Ubuntu для создания окружений может понадобиться пакет `python3-venv`.
 
 ```bash
-uv run python init_db.py     - скрипт для инициализации БД
+python3 -m venv server/.venv
+server/.venv/bin/python -m pip install -r server/requirements.txt
 
-uv run uvicorn app.main:app --reload --port 3000
-
-http://localhost:3000/docs  -> Swagger UI
+python3 -m venv desktop/.venv
+desktop/.venv/bin/python -m pip install -r desktop/requirements.txt
 ```
 
-##### без uv
+Пример для Windows (Git Bash):
+
+```bash
+python -m venv server/.venv
+server/.venv/Scripts/python.exe -m pip install -r server/requirements.txt
+python -m venv desktop/.venv
+desktop/.venv/Scripts/python.exe -m pip install -r desktop/requirements.txt
+```
+
+Если используете `uv`, вместо создания и установки через pip:
+
+```bash
+uv venv --python python3 server/.venv
+uv pip install --python server/.venv -r server/requirements.txt
+uv venv --python python3 desktop/.venv
+uv pip install --python desktop/.venv -r desktop/requirements.txt
+```
+
+В Windows замените `--python python3` на `--python python`.
+`pyproject.toml` в проекте нет, поэтому `uv sync` не используется.
+Работоспособность самого `uv` на Windows 7 здесь не проверена; используйте pip.
+
+Для полного пересоздания окружения доступны вспомогательные скрипты:
+
+```bash
+bash server/scripts_server/recreate_env.sh
+bash desktop/scripts_server/recreate_env.sh
+```
+
+Они **удаляют существующую `.venv` соответствующего компонента**.
+Интерпретатор можно указать через `PYTHON_BIN`, например:
+`PYTHON_BIN=/usr/bin/python3 bash server/scripts_server/recreate_env.sh`.
+Скрипты пишут логи в каталог `logs/` компонента и поддерживают установку
+из локального каталога пакетов через `LOCAL_PACKAGES_DIR`.
+
+## Запуск
+
+В первом терминале из корня репозитория:
 
 ```bash
 bash server/run_server_pip.sh
 ```
 
-#### 3.1 запуск decktop 
+Сервер: http://127.0.0.1:3000, Swagger UI: http://127.0.0.1:3000/docs.
+База `server/telemetry.db` и таблицы создаются автоматически при импорте приложения.
+Отдельный `init_db.py` не нужен. Путь можно изменить переменной `DB_PATH`;
+относительный путь отсчитывается от каталога `server/` при запуске скриптом.
 
-##### c uv
-
-```bash
-uv run python init_db.py     - скрипт для инициализации БД
-
-uv run uvicorn app.main:app --reload --port 3000
-
-http://localhost:3000/docs  -> Swagger UI
-```
-
-##### без uv
+Во втором терминале:
 
 ```bash
-cd desktop
-bash scripts_server/recreate_env.sh
-source .venv/Scripts/activate
-python main.py
+bash desktop/run_desktop_pip.sh
 ```
 
-## Запуск приложения (Windows — exe)
-## Запуск приложения (Windows — exe)
+Скрипты используют собственную `.venv`, поддерживают Windows и Linux и могут
+вызываться из любого каталога. Остановить процесс можно через `Ctrl+C`.
 
-### Требования
+Настройки сборщика задаются переменными окружения:
 
-- [Visual C++ Redistributable 2015–2022](https://aka.ms/vs/17/release/vc_redist.x64.exe)
-- ОС: Windows 7 и выше
+| Переменная | Значение по умолчанию |
+|---|---|
+| `SERVER_URL` | `http://127.0.0.1:3000` |
+| `DEVICE_ID` | `demo-sensor-01` |
+| `INTERVAL_SEC` | `2` |
 
-## help
+Например, в Bash:
 
-TODO
-# Рекомендация: замените init_db.py и migrate_db.py на Alembic (для обучения)
-Так как вы учитесь, сейчас самое время освоить Alembic — это профессиональный инструмент для миграций (как Liquibase в Java).
+```bash
+DEVICE_ID=sensor-2 INTERVAL_SEC=5 bash desktop/run_desktop_pip.sh
+```
 
-Как перейти на Alembic (пошагово):
+Сервер по умолчанию слушает только локальный интерфейс. Для подключения
+с телефона в локальной сети запустите из `server/`:
 
-Установите Alembic (если еще нет):
-uv pip install alembic
+```bash
+.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 3000
+```
 
-Инициализируйте Alembic в папке backend/:
-alembic init -t async migrations
-(Если используете синхронный SQLAlchemy, то просто alembic init migrations)
+В Windows путь к Python — `.venv/Scripts/python.exe`.
+На телефоне укажите локальный IP компьютера; сервер пока не имеет аутентификации.
 
-В файле alembic.ini поправьте строку:
-sqlalchemy.url = sqlite:///./faults.db
+## Проверка API
 
-В migrations/env.py укажите вашу Base (чтобы Alembic видел модели):
-target_metadata = [Base.metadata] (импортируйте из app.models.all_models)
+При запущенном сервере (Bash с установленным `curl`):
 
-Создайте первую миграцию:
-alembic revision --autogenerate -m "Initial tables"
+```bash
+curl -X POST http://127.0.0.1:3000/api/telemetry \
+  -H 'Content-Type: application/json' \
+  -d '{"device_id":"demo-sensor-01","value":25.5}'
+curl http://127.0.0.1:3000/api/devices/demo-sensor-01/latest
 
-Примените:
-alembic upgrade head
+curl -X POST http://127.0.0.1:3000/api/devices/demo-sensor-01/command \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"pump_on","params":{"speed":50}}'
+curl http://127.0.0.1:3000/api/devices/demo-sensor-01/commands
+```
 
-Преимущество: Теперь структура БД будет меняться контролируемо, и вы сможете откатывать изменения.
+Работающий сборщик получает команды и подтверждает их автоматически,
+поэтому очередь при последнем запросе уже может оказаться пустой.
+Действие `pump_on` только выводится в консоль — оборудование не включается.
 
+## Тесты
 
-smart_house/
-├── ARCHITECTURE.md          # Архитектура и roadmap
-├── Readme.md                # этот файл
-├── server/                  # FastAPI-сервер
-│   ├── app/
-│   ├── scripts_server/
-│   ├── init_db.py
-│   ├── requirements.txt
-│   └── run_server_pip.sh
-└── desktop/                 # Python-сборщик данных
-    ├── main.py
-    ├── requirements.txt
-    └── scripts_server/
-│   └── run_desktop_pip.sh
+Из корня репозитория, без запущенного сервера:
+
+```bash
+server/.venv/bin/python -m pytest server/tests -q
+```
+
+В Windows: `server/.venv/Scripts/python.exe -m pytest server/tests -q`.
+Тесты используют отдельные временные базы данных.
+
+Проверено 2026-10-21: установка закреплённых зависимостей и 7 тестов API
+на Linux / Python 3.12.3; подбор бинарных пакетов через pip для Python 3.8 /
+Windows x64. Запуск на самой Windows 7 не проверен. На Python 3.12 тесты
+выдают предупреждение об устаревшем интерфейсе внутри зависимости TestClient.
+
+## Структура
+
+```text
+server/
+  app/main.py                   # API, модели запросов и создание таблиц
+  tests/                        # тесты телеметрии и команд
+  requirements.txt
+  run_server_pip.sh
+  scripts_server/recreate_env.sh
+desktop/
+  main.py                       # сборщик с демонстрационным датчиком
+  requirements.txt
+  run_desktop_pip.sh
+  scripts_server/recreate_env.sh
+mobile/                         # место для проекта DevEco Studio
+```
+
+Сборка и распространение `.exe` пока не настроены.

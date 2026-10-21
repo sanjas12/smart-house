@@ -5,7 +5,7 @@
 # Назначение: пересоздаёт окружение разработки в Windows (Git Bash) и Linux (Bash).
 # Запуск из любой папки: bash /путь/к/проекту/scripts/recreate_env.sh.
 # Выбирает доступный Python 3: PYTHON_BIN, затем python3, python или python.exe,
-# без ограничения младшей версии. Совместимость кода и зависимостей определяется
+# с проверкой минимальной версии 3.8. Совместимость кода и зависимостей определяется
 # отдельно конфигурацией проекта. PYTHON_BIN позволяет задать свой интерпретатор.
 # Проверяет доступ к PyPI и наличие файлов зависимостей до удаления старой .venv.
 # Затем создаёт .venv через uv либо выбранный Python и устанавливает зависимости:
@@ -104,7 +104,7 @@ select_python() {
     for candidate in "${PYTHON_BIN:-}" python3 python python.exe; do
         [ -n "$candidate" ] || continue
         if command -v "$candidate" >/dev/null 2>&1 &&
-            "$candidate" -c 'import sys; sys.exit(sys.version_info.major != 3)' >/dev/null 2>&1; then
+            "$candidate" -c 'import sys; sys.exit(not ((3, 8) <= sys.version_info[:2] < (4, 0)))' >/dev/null 2>&1; then
             # Use the base interpreter: the current .venv may be removed below.
             PYTHON_BIN=$("$candidate" -c 'import sys; print(getattr(sys, "_base_executable", sys.executable))')
             if command -v cygpath >/dev/null 2>&1; then
@@ -113,7 +113,7 @@ select_python() {
             return 0
         fi
     done
-    log_error "Python 3 не найден. Установите python3 (Linux) или Python 3 (Windows)."
+    log_error "Python 3.8+ не найден. Для Windows 7 используйте Python 3.8.10."
     exit 1
 }
 

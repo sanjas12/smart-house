@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 cd "$(dirname "$0")"
-
 export PYTHONIOENCODING=utf-8
 
-# rm faults.db
+if [[ -f .venv/Scripts/python.exe ]]; then
+    VENV_PYTHON=".venv/Scripts/python.exe"
+elif [[ -x .venv/bin/python ]]; then
+    VENV_PYTHON=".venv/bin/python"
+else
+    echo "Окружение не найдено. Создайте .venv по инструкции в Readme.md." >&2
+    exit 1
+fi
 
-source .venv/Scripts/activate
-
-# python init_db.py     - скрипт для инициализации БД
-
-# python migrate_db.py     - скрипт для миграции БД
-
-# python seed_data.py
-
-uvicorn app.main:app --reload --port 3000
+exec "$VENV_PYTHON" -m uvicorn app.main:app --reload --port 3000
