@@ -81,3 +81,61 @@ def test_invalid_settings_do_not_start_worker(app):
         assert window.entries[0].isEnabled()
     finally:
         window.close()
+
+
+def test_history_pages_and_empty_result(app):
+    window = CollectorWindow()
+    history = window.history
+    history.busy = True
+    history.results.put(('http://127.0.0.1:3000', 'sensor', 0, ['sensor'], 101,
+                         [('101', '2026-10-21T12:00:00', '25.5')], None))
+    history.drain()
+    assert history.table.rowCount() == 1
+    assert history.table.item(0, 2).text() == '25.5'
+    assert history.next.isEnabled()
+    assert not history.previous.isEnabled()
+    history.devices.setEditText('unknown')
+    assert history.table.rowCount() == 0
+    assert not history.next.isEnabled()
+    history.results.put(('http://127.0.0.1:3000', 'unknown', 0, ['sensor'], 0, [], None))
+    history.drain()
+    assert 'Показаний пока нет' in history.message.text()
+    window.close()
+
+
+def test_history_error_and_stale_server_result(app):
+    window = CollectorWindow()
+    history = window.history
+    history.results.put(('http://127.0.0.1:3000', 'sensor', 0, [], 0, [], 'offline'))
+    history.drain()
+    assert 'offline' in history.message.text()
+    assert history.refresh.isEnabled()
+    window.entries[0].setText('http://localhost:4000')
+    history.results.put(('http://127.0.0.1:3000', 'sensor', 0, [], 0, [], None))
+    history.drain()
+    assert 'Адрес сервера изменён' in history.message.text()
+    window.close()
+
+
+def test_history_fetch_uses_server_api(app):
+    from unittest.mock import MagicMock
+
+    window = CollectorWindow()
+    devices = MagicMock()
+    devices.json.return_value = {'devices': ['sensor']}
+    readings = MagicMock()
+    readings.json.return_value = {
+        'total': 1, 'readings': [{'id': 1, 'timestamp': '2026-10-21', 'value': 23}]}
+    session = MagicMock()
+    session.get.side_effect = [devices, readings]
+    with patch('history.requests.Session') as factory:
+        factory.return_value.__enter__.return_value = session
+        window.history.fetch('http://localhost:3000', '', 0, 'sensor')
+    assert session.trust_env is False
+    assert session.get.call_args_list[1].args[0].endswith('/api/devices/sensor/history')
+    assert session.get.call_args_list[1].kwargs['params'] == {'limit': 100, 'offset': 0}
+    window.entries[0].setText('http://localhost:3000')
+    window.history.drain()
+    assert window.history.devices.currentText() == 'sensor'
+    assert window.history.table.item(0, 2).text() == '23'
+    window.close()

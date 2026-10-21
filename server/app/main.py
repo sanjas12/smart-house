@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 import json
 from typing import Any, Dict, Optional
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from pydantic import BaseModel
 
 DB_PATH = os.environ.get("DB_PATH", "telemetry.db")
@@ -36,6 +36,10 @@ def init_db():
             completed_at TEXT
         )
     """)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_telemetry_device_id "
+        "ON telemetry (device_id, id)"
+    )
     conn.commit()
     conn.close()
 
@@ -135,3 +139,36 @@ def get_latest(device_id: str):
     if row:
         return {"device_id": device_id, "value": row[0], "timestamp": row[1]}
     return {"error": "no data"}
+
+@app.get("/api/devices")
+def list_devices():
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT device_id FROM telemetry GROUP BY device_id ORDER BY device_id"
+        ).fetchall()
+        return {"devices": [row[0] for row in rows]}
+    finally:
+        conn.close()
+
+
+@app.get("/api/devices/{device_id}/history")
+def get_history(device_id: str, limit: int = Query(100, ge=1, le=500),
+                offset: int = Query(0, ge=0)):
+    conn = get_conn()
+    try:
+        # Read count and page from the same snapshot while new readings arrive.
+        conn.execute("BEGIN")
+        total = conn.execute(
+            "SELECT COUNT(*) FROM telemetry WHERE device_id = ?", (device_id,)
+        ).fetchone()[0]
+        rows = conn.execute(
+            "SELECT id, value, timestamp FROM telemetry WHERE device_id = ? "
+            "ORDER BY id DESC LIMIT ? OFFSET ?", (device_id, limit, offset)
+        ).fetchall()
+        return {"device_id": device_id, "total": total, "limit": limit,
+                "offset": offset, "readings": [
+                    {"id": row[0], "value": row[1], "timestamp": row[2]}
+                    for row in rows]}
+    finally:
+        conn.close()

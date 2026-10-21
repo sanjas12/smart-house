@@ -9,10 +9,11 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QApplication, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
     QLineEdit, QMainWindow, QMessageBox, QPlainTextEdit, QPushButton,
-    QVBoxLayout, QWidget,
+    QVBoxLayout, QWidget, QTabWidget,
 )
 
 from collector import Settings, run_collector
+from history import HistoryWidget
 
 
 class CollectorWindow(QMainWindow):
@@ -28,7 +29,9 @@ class CollectorWindow(QMainWindow):
         self.resize(820, 650)
         self.setMinimumSize(640, 530)
         panel = QWidget()
-        self.setCentralWidget(panel)
+        tabs = QTabWidget()
+        self.setCentralWidget(tabs)
+        tabs.addTab(panel, "Сборщик")
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(12)
@@ -71,6 +74,9 @@ class CollectorWindow(QMainWindow):
         self.log.setReadOnly(True)
         self.log.setMaximumBlockCount(500)
         layout.addWidget(self.log, 1)
+        self.history = HistoryWidget(
+            lambda: self.entries[0].text(), lambda: self.entries[1].text())
+        tabs.addTab(self.history, "История из базы")
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.drain_events)
         self.timer.start(100)
