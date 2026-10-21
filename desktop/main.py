@@ -15,9 +15,9 @@ def main():
         try:
             from gui import launch
         except ImportError as exc:
-            if not (exc.name or "").startswith("PyQt5"):
+            if not (exc.name or "").startswith(("PyQt5", "pyqtgraph", "numpy")):
                 raise
-            parser.exit(1, "PyQt5 не установлен. Установите зависимости desktop/requirements.txt. "
+            parser.exit(1, "Не установлены зависимости GUI. Установите desktop/requirements.txt. "
                         "Для консольного режима используйте --cli.\n")
         launch()
         return

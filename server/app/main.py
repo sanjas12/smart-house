@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 import json
 from typing import Any, Dict, Optional
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
 DB_PATH = os.environ.get("DB_PATH", "telemetry.db")
@@ -39,6 +39,10 @@ def init_db():
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_telemetry_device_id "
         "ON telemetry (device_id, id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_telemetry_device_time "
+        "ON telemetry (device_id, timestamp, id)"
     )
     conn.commit()
     conn.close()
@@ -170,5 +174,29 @@ def get_history(device_id: str, limit: int = Query(100, ge=1, le=500),
                 "offset": offset, "readings": [
                     {"id": row[0], "value": row[1], "timestamp": row[2]}
                     for row in rows]}
+    finally:
+        conn.close()
+
+
+@app.get("/api/devices/{device_id}/history/plot")
+def get_history_plot(device_id: str, start: datetime = Query(..., alias="from"),
+                     end: datetime = Query(..., alias="to")):
+    # Existing timestamps are local server time without a UTC offset.
+    if start.tzinfo is not None or end.tzinfo is not None:
+        raise HTTPException(422, "Use local server time without a timezone offset")
+    if start > end:
+        raise HTTPException(422, "Period start must not be after period end")
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, value, timestamp FROM telemetry "
+            "WHERE device_id = ? AND timestamp >= ? AND timestamp <= ? "
+            "ORDER BY timestamp, id LIMIT 50001",
+            (device_id, start.isoformat(), end.isoformat()),
+        ).fetchall()
+        if len(rows) > 50000:
+            raise HTTPException(413, "More than 50000 readings; choose a shorter period")
+        return {"device_id": device_id, "readings": [
+            {"id": row[0], "value": row[1], "timestamp": row[2]} for row in rows]}
     finally:
         conn.close()

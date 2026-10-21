@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
 
 from collector import Settings, run_collector
 from history import HistoryWidget
+from chart import ChartWidget
 
 
 class CollectorWindow(QMainWindow):
@@ -77,6 +78,13 @@ class CollectorWindow(QMainWindow):
         self.history = HistoryWidget(
             lambda: self.entries[0].text(), lambda: self.entries[1].text())
         tabs.addTab(self.history, "История из базы")
+        self.chart = ChartWidget(
+            lambda: self.entries[0].text(),
+            lambda: self.history.devices.currentText() or self.entries[1].text())
+        tabs.addTab(self.chart, "График истории")
+        self.history.devices.currentTextChanged.connect(self.chart.sync_device)
+        self.entries[0].textChanged.connect(self.chart.invalidate)
+        self.entries[1].textChanged.connect(self.chart.sync_device)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.drain_events)
         self.timer.start(100)

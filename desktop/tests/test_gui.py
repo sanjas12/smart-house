@@ -139,3 +139,73 @@ def test_history_fetch_uses_server_api(app):
     assert window.history.devices.currentText() == 'sensor'
     assert window.history.table.item(0, 2).text() == '23'
     window.close()
+
+
+def test_chart_period_plot_and_empty(app):
+    window = CollectorWindow()
+    chart = window.chart
+    params = chart.parameters()
+    chart.results.put((params, [(1000.0, 20.0), (1001.0, 25.0)], None))
+    chart.drain()
+    x, y = chart.curve.getData()
+    assert list(x) == [1000.0, 1001.0]
+    assert list(y) == [20.0, 25.0]
+    assert 'Точек: 2' in chart.message.text()
+    chart.results.put((params, [], None))
+    chart.drain()
+    assert 'показаний нет' in chart.message.text()
+    chart.end.setDateTime(chart.start.dateTime().addSecs(-1))
+    with patch('chart.threading.Thread') as thread:
+        chart.load()
+    thread.assert_not_called()
+    assert 'Начало периода' in chart.message.text()
+    window.close()
+
+
+def test_chart_fetch_full_period_and_sort(app):
+    from unittest.mock import MagicMock
+    window = CollectorWindow()
+    chart = window.chart
+    params = chart.parameters()
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {'readings': [
+        {'timestamp': '2026-10-21T12:00:02', 'value': 25},
+        {'timestamp': '2026-10-21T12:00:01', 'value': 20}]}
+    session = MagicMock()
+    session.get.return_value = response
+    with patch('chart.requests.Session') as factory:
+        factory.return_value.__enter__.return_value = session
+        chart.fetch(params)
+    assert session.get.call_args.kwargs['params'] == {'from': params[2], 'to': params[3]}
+    assert session.get.call_args.args[0].endswith('/history/plot')
+    chart.drain()
+    x, y = chart.curve.getData()
+    assert list(x) == sorted(x)
+    assert list(y) == [20, 25]
+    chart.device.setText('another')
+    chart.results.put((params, [(1000, 1)], None))
+    chart.drain()
+    assert 'Параметры изменены' in chart.message.text()
+    window.close()
+
+
+def test_chart_limit_and_connection_errors(app):
+    from unittest.mock import MagicMock
+    import requests
+    window = CollectorWindow()
+    chart = window.chart
+    params = chart.parameters()
+    session = MagicMock()
+    session.get.return_value.status_code = 413
+    with patch('chart.requests.Session') as factory:
+        factory.return_value.__enter__.return_value = session
+        chart.fetch(params)
+        chart.drain()
+        assert '50 000' in chart.message.text()
+        session.get.side_effect = requests.ConnectionError('offline')
+        chart.fetch(params)
+        chart.drain()
+    assert 'offline' in chart.message.text()
+    assert chart.build.isEnabled()
+    window.close()
